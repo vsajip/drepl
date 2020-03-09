@@ -49,6 +49,7 @@ struct DMDEngine
     string _compiler;
     string _tmpDir;
     size_t _id;
+    string[] _modules;
 
     @disable this(this);
 
@@ -58,6 +59,16 @@ struct DMDEngine
         _tmpDir = tmpDir;
         if (_tmpDir.exists) rmdirRecurse(_tmpDir);
         mkdirRecurse(_tmpDir);
+        //writef("using %s\n", tmpDir);
+        if (exists("drepl.mod")) {
+            _modules = slurp!(string)("drepl.mod", "%s");
+
+            foreach (m; _modules) {
+                auto fn = buildPath(tmpDir, m);
+                copy(m, fn, Yes.preserveAttributes);
+                //writef("copied %s\n", m);
+            }
+        }
     }
 
     ~this()
@@ -194,10 +205,16 @@ private:
     string compileModule(string path)
     {
         import std.regex;
-        auto args = [_compiler, "-I"~_tmpDir, "-of"~path~".so", "-fPIC",
+        auto wd = getcwd();
+
+        auto args = [_compiler, "-I"~_tmpDir, "-I"~wd~"/source", "-I"~wd~"/src",
+                     "-of"~path~".so", "-fPIC",
                      "-shared", path, "-L-l:libphobos2.so"];
         foreach (i; 0 .. _id)
             args ~= "-L"~_tmpDir~format("/_mod%s.so", i);
+        foreach (m; _modules)
+            args ~= "-L"~_tmpDir~format("/%s", m);
+        //writef("%s\n", join(args, " "));
         auto dmd = execute(args);
         enum cleanErr = ctRegex!(`^.*Error: `, "m");
         if (dmd.status != 0)
