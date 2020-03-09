@@ -108,10 +108,13 @@ struct DMDEngine
                 extern(C) void _expr()
                 {
                     import std.stdio;
-                    static if (is(typeof((() => (%1$s))()) == void))
-                        (%1$s), write("void");
-                    else
-                        write((%1$s));
+                    auto v = (%1$s);
+
+                    static if (is(typeof((() => v)()) == void))
+                        v, write("void");
+                    else {
+                        write(v);
+                    }
                 }
             }.outdent(), expr);
         m.f.close();
